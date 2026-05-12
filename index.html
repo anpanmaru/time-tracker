@@ -1,0 +1,2368 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Time Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,400;0,500;0,600;0,700;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #111111;
+  --bg-secondary: #181818;
+  --bg-card: #1e1e1e;
+  --bg-hover: #282828;
+  --accent: #9a8afb;
+  --accent-dim: #8377db;
+  --accent-glow: rgba(154, 138, 251, 0.2);
+  --text-primary: #d4d4d4;
+  --text-secondary: #858585;
+  --text-muted: #555555;
+  --border: #2a2a2a;
+  --session-color: #9a8afb;
+  --session-bg: rgba(154, 138, 251, 0.18);
+  --green: #6ec97a;
+  --green-dim: rgba(110, 201, 122, 0.15);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Azeret Mono', -apple-system, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 22px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0;
+  color: var(--accent);
+}
+
+.logo span { color: var(--text-secondary); font-weight: 400; font-size: 12px; margin-left: 8px; }
+
+/* Timer Bar */
+.timer-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.timer-display {
+  font-size: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 180px;
+  text-align: left;
+  transition: color 0.3s;
+  display: flex;
+  align-items: baseline;
+}
+
+.timer-display.running { color: var(--green); }
+.timer-display.stopped { color: var(--text-secondary); }
+
+.timer-display .t-sep {
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  font-size: 28px;
+}
+
+.timer-display .t-num {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+}
+
+.timer-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.timer-btn.start {
+  background: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.timer-btn.start:hover { background: var(--accent-dim); transform: scale(1.05); }
+
+.timer-btn.stop {
+  background: var(--green);
+  box-shadow: 0 0 20px var(--green-dim);
+}
+
+.timer-btn.stop:hover { opacity: 0.9; transform: scale(1.05); }
+
+.timer-btn svg { width: 24px; height: 24px; fill: white; }
+
+.timer-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.timer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timer-started-at {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { background: var(--bg-hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); }
+.btn.primary:hover { background: var(--accent-dim); }
+.btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* Layout */
+.main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Week Navigation */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.week-nav-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.week-nav-center > button:not(.btn) {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.week-nav-center > button:not(.btn):hover { background: var(--bg-hover); }
+
+.week-label {
+  font-size: 14px;
+  font-weight: 500;
+  width: 300px;
+  text-align: center;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+
+.week-label:hover {
+  border-color: var(--text-muted);
+}
+
+.timer-stats {
+  display: flex;
+  gap: 24px;
+  margin-left: auto;
+}
+
+.timer-stat {
+  text-align: center;
+}
+
+.timer-stat-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.timer-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab:hover { color: var(--text-primary); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Calendar View fills remaining space */
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Calendar Grid */
+.calendar-container {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  min-height: 100%;
+}
+
+/* Day Headers */
+.day-header-row {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.day-header-spacer { border-right: 1px solid var(--border); }
+
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-right: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.day-header .day-date {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.day-header .day-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.day-header .day-name { font-weight: 500; font-size: 10px; }
+.day-header .day-hours { font-size: 10px; color: var(--text-muted); }
+
+.day-header.today .day-date {
+  color: white;
+  background: var(--accent);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.day-header.today.recording .day-date {
+  background: var(--green);
+}
+
+.day-header.sunday .day-date { color: #d4736a; }
+.day-header.saturday .day-date { color: #7aabcf; }
+.day-header.today.sunday .day-date, .day-header.today.saturday .day-date { color: white; }
+
+/* Time Grid */
+.time-grid {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+}
+
+.time-label-col {
+  border-right: 1px solid var(--border);
+}
+
+.time-label {
+  height: 60px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.time-label:first-child {
+  padding-top: 4px;
+}
+
+.day-col {
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.hour-line {
+  height: 60px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hour-line:nth-child(even) { border-bottom-color: rgba(42, 58, 92, 0.5); }
+
+.session-block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: var(--session-bg);
+  border-left: 3px solid var(--session-color);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--text-primary);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.15s;
+  z-index: 5;
+}
+
+.session-block:hover {
+  background: rgba(42, 42, 58, 0.88);
+  z-index: 50 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.session-popup {
+  display: none;
+  position: fixed;
+  background: rgba(154, 138, 251, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+
+.session-popup.is-running {
+  background: rgba(110, 201, 122, 0.5);
+}
+
+.session-popup .popup-time {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.session-popup .popup-dur {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 2px;
+}
+.session-block .session-time { font-weight: 600; }
+.session-block .session-dur { color: var(--text-secondary); }
+
+.session-block.running {
+  background: var(--green-dim);
+  border-left-color: var(--green);
+  animation: pulse 2s infinite;
+}
+
+/* Current time indicator */
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 8;
+  pointer-events: none;
+}
+
+.now-line.recording {
+  background: var(--green);
+}
+
+.now-dot {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.now-line.recording .now-dot {
+  background: var(--green);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Week Picker */
+.week-picker {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 32px;  /* offset for < button */
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  width: 320px;
+}
+
+.week-picker.active { display: block; }
+
+.wp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.wp-header span {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.wp-nav {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.wp-nav:hover { background: var(--bg-hover); }
+
+.wp-days {
+  display: grid;
+  grid-template-columns: 36px repeat(7, 1fr);
+  gap: 0;
+  text-align: center;
+  font-size: 11px;
+}
+
+.wp-day-label {
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wp-day-label.sun { color: #d4736a; }
+.wp-day-label.sat { color: #7aabcf; }
+
+.wp-wnum {
+  padding: 6px 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wp-row {
+  display: contents;
+  cursor: pointer;
+}
+
+.wp-cell {
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.wp-row:hover .wp-cell,
+.wp-row:hover .wp-wnum {
+  background: var(--bg-hover);
+}
+
+.wp-row.selected .wp-cell {
+  background: var(--accent);
+  color: white;
+}
+
+.wp-row.selected .wp-cell:first-of-type {
+  border-radius: 6px 0 0 6px;
+}
+
+.wp-row.selected .wp-cell:last-of-type {
+  border-radius: 0 6px 6px 0;
+}
+
+.wp-row.selected .wp-wnum {
+  background: var(--accent-dim);
+  color: white;
+  border-radius: 6px 0 0 6px;
+}
+
+.wp-cell.today {
+  font-weight: 700;
+  color: var(--text-primary);
+  position: relative;
+}
+
+.wp-cell.today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.wp-row.selected .wp-cell.today::after {
+  background: white;
+}
+
+.wp-cell.other-month {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.wp-cell.sun { color: #d4736a; }
+.wp-cell.sat { color: #7aabcf; }
+.wp-row.selected .wp-cell.sun,
+.wp-row.selected .wp-cell.sat { color: white; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeSlideIn 0.4s ease-out;
+}
+
+/* Monthly Summary View */
+.monthly-view {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.monthly-view.active { display: flex; }
+
+.monthly-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+}
+.calendar-view.hidden { display: none; }
+
+.monthly-summary-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.monthly-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.monthly-title h2 { font-size: 18px; font-weight: 600; }
+
+.monthly-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+.daily-breakdown {
+  margin-top: 16px;
+}
+
+.daily-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.daily-row:last-child { border-bottom: none; }
+.daily-row-today { background: rgba(154, 138, 251, 0.08); }
+.daily-row-today .daily-date { color: var(--accent) !important; font-weight: 600; }
+.daily-date { width: 120px; color: var(--text-secondary); }
+.daily-bar-wrap { flex: 1; height: 20px; border-radius: 4px; margin: 0 12px; overflow: hidden; }
+.daily-bar-wrap:has(.daily-bar) { background: var(--bg-secondary); }
+.daily-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+.daily-hours { width: 60px; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal h3 { font-size: 16px; margin-bottom: 16px; }
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+/* Backup slots */
+.backup-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.backup-slot-info {
+  font-size: 12px;
+}
+
+.backup-slot-date { color: var(--text-primary); font-weight: 500; }
+.backup-slot-meta { color: var(--text-muted); margin-top: 2px; }
+
+.backup-slot .btn { font-size: 11px; padding: 4px 12px; }
+
+/* Invoice Print */
+.invoice-view {
+  display: none;
+  padding: 40px;
+  background: white;
+  color: #333;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media print {
+  body > *:not(.invoice-view) { display: none !important; }
+  .invoice-view { display: block !important; }
+  .invoice-view .no-print { display: none; }
+}
+
+.invoice-view h1 { font-size: 24px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 24px; }
+.invoice-view table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.invoice-view th, .invoice-view td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #ddd; }
+.invoice-view th { background: #f5f5f5; font-weight: 600; }
+.invoice-view .invoice-total { font-size: 18px; font-weight: 700; text-align: right; margin-top: 16px; }
+
+/* Edit Modal */
+.edit-modal {
+  max-width: 520px;
+  width: 95%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.edit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.edit-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+
+.edit-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.edit-close:hover { color: var(--text-primary); }
+
+.edit-section {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.edit-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* Date nav */
+.date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.date-display {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 140px;
+  text-align: center;
+}
+
+.date-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.date-arrow:hover { background: var(--bg-hover); }
+
+/* Time inputs */
+.time-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.time-col {}
+.dur-col {}
+
+.time-arrow {
+  color: var(--text-muted);
+  font-size: 18px;
+  padding-bottom: 12px;
+  text-align: center;
+}
+
+/* Time pick button */
+.time-pick-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.time-pick-btn:hover { border-color: var(--accent); }
+
+
+/* Custom Time Picker Popup */
+.custom-tp {
+  display: none;
+  position: fixed;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  z-index: 300;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  width: 200px;
+}
+
+.custom-tp.active { display: block; }
+
+.custom-tp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.custom-tp-body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 14px;
+}
+
+.tp-col-wrap { flex: 1; max-width: 80px; }
+
+.tp-col-label {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tp-scroll {
+  height: 160px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.tp-scroll::-webkit-scrollbar { width: 4px; }
+.tp-scroll::-webkit-scrollbar-track { background: transparent; }
+.tp-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.tp-item {
+  padding: 6px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.1s;
+}
+
+.tp-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.tp-item.selected {
+  color: white;
+  background: var(--accent);
+  font-weight: 600;
+}
+
+.tp-sep {
+  font-size: 18px;
+  color: var(--text-muted);
+  padding-top: 28px;
+}
+
+.custom-tp-footer {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.custom-tp-footer .edit-btn { padding: 6px 20px; font-size: 12px; }
+
+.duration-input {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px 4px;
+  transition: border-color 0.15s;
+}
+
+.duration-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* Edit actions */
+.edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+}
+
+.edit-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.edit-btn.delete {
+  background: none;
+  color: #d4736a;
+  border: 1px solid rgba(212, 115, 106, 0.3);
+}
+
+.edit-btn.delete:hover {
+  background: rgba(212, 115, 106, 0.1);
+}
+
+.edit-btn.cancel {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.edit-btn.cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.edit-btn.save {
+  background: var(--accent);
+  color: white;
+}
+
+.edit-btn.save:hover {
+  background: var(--accent-dim);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header { padding: 12px 16px; }
+  .timer-bar { padding: 12px 16px; flex-wrap: wrap; }
+  .timer-display { font-size: 28px; min-width: 140px; }
+  .week-nav { padding: 8px 16px; flex-wrap: wrap; gap: 8px; }
+  .tabs { padding: 0 16px; overflow-x: auto; }
+  .calendar { font-size: 11px; }
+  .time-label { font-size: 10px; padding: 0 4px; }
+  .day-header .day-date { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">TimeTracker</div>
+  <div class="header-actions">
+    <button class="btn" onclick="openSettingsModal()">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.6 3.6 0 0112 15.6z"/></svg>
+      Settings
+    </button>
+    <button class="btn" onclick="openBackupModal()">
+      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+      Backup
+    </button>
+  </div>
+</div>
+
+<!-- Timer Bar -->
+<div class="timer-bar">
+  <button class="timer-btn start" id="timerBtn" onclick="toggleTimer()">
+    <svg id="playIcon" viewBox="0 0 24 24"><polygon points="8,5 19,12 8,19"/></svg>
+    <svg id="stopIcon" viewBox="0 0 24 24" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+  </button>
+  <div class="timer-info">
+    <div class="timer-display stopped" id="timerDisplay">0:00:00</div>
+    <div class="timer-started-at" id="timerStartedAt"></div>
+  </div>
+  <div class="timer-stats">
+    <div class="timer-stat">
+      <span class="timer-stat-value" id="weekTotal">0:00</span>
+      <span class="timer-stat-label">Total</span>
+    </div>
+    <div class="timer-stat">
+      <span class="timer-stat-value" id="statWorkDays">0</span>
+      <span class="timer-stat-label">Work Days</span>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs + Week Nav -->
+<div class="tabs">
+  <button class="tab active" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
+  <button class="tab" data-tab="monthly" onclick="switchTab('monthly')">Monthly</button>
+</div>
+
+<div class="main">
+  <!-- Calendar View -->
+  <div class="calendar-view" id="calendarView">
+    <div class="week-nav">
+      <div class="week-nav-center">
+        <button onclick="changeWeek(-1)">&#8249;</button>
+        <span class="week-label" id="weekLabel" onclick="toggleWeekPicker()" style="cursor:pointer;"></span>
+        <div class="week-picker" id="weekPicker"></div>
+        <button onclick="changeWeek(1)">&#8250;</button>
+        <button class="btn" onclick="goToday()" style="font-size:12px;padding:6px 12px;white-space:nowrap;">Today</button>
+      </div>
+    </div>
+
+    <div class="calendar-container" id="calendarContainer">
+      <div class="day-header-row" id="dayHeaders"></div>
+      <div class="time-grid" id="timeGrid"></div>
+    </div>
+  </div>
+
+  <!-- Monthly View -->
+  <div class="monthly-view" id="monthlyView">
+    <div class="week-nav">
+      <div class="week-nav-center">
+        <button onclick="changeMonth(-1)">&#8249;</button>
+        <span class="week-label" id="monthLabel"></span>
+        <button onclick="changeMonth(1)">&#8250;</button>
+        <button class="btn" onclick="goToThisMonth()" style="font-size:12px;padding:6px 12px;white-space:nowrap;">Today</button>
+      </div>
+    </div>
+    <div class="monthly-scroll" id="monthlyScroll"></div>
+  </div>
+</div>
+
+<!-- Backup Modal -->
+<div class="modal-overlay" id="backupModal">
+  <div class="modal" style="max-width:480px;">
+    <h3>Backup & Restore</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Auto-saved every time you record. Up to 3 backups kept.</p>
+    <div id="backupList"></div>
+    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Download backup file</p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="downloadBackup()" style="flex:1;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download JSON
+        </button>
+        <button class="btn" onclick="triggerFileRestore()" style="flex:1;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" transform="rotate(180 12 12)"/></svg>
+          Restore from file
+        </button>
+      </div>
+      <input type="file" id="restoreFileInput" accept=".json" style="display:none;" onchange="restoreFromFile(event)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModals()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Session Hover Popup -->
+<div class="session-popup" id="sessionPopup">
+  <div class="popup-time" id="popupTime"></div>
+  <div class="popup-dur" id="popupDur"></div>
+</div>
+
+<!-- Session Edit Modal -->
+<div class="modal-overlay" id="sessionEditModal">
+  <div class="modal edit-modal">
+    <div class="edit-header">
+      <h3>Edit Session</h3>
+      <button class="edit-close" onclick="closeSessionEdit()">×</button>
+    </div>
+
+    <!-- Date picker -->
+    <div class="edit-section">
+      <label class="edit-label">Date</label>
+      <div class="date-nav">
+        <button class="date-arrow" onclick="editDateShift(-1)">‹</button>
+        <span class="date-display" id="editDateDisplay"></span>
+        <button class="date-arrow" onclick="editDateShift(1)">›</button>
+      </div>
+      <input type="hidden" id="editDate">
+    </div>
+
+    <!-- Time inputs -->
+    <div class="edit-section">
+      <div class="time-row">
+        <div class="time-col">
+          <label class="edit-label">Start</label>
+          <button class="time-pick-btn" id="editStartBtn" onclick="openTimePicker('start')">
+            <span id="editStartDisplay">09:50</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.4"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          </button>
+          <input type="hidden" id="editStartNative">
+        </div>
+        <span class="time-arrow">→</span>
+        <div class="time-col">
+          <label class="edit-label">End</label>
+          <button class="time-pick-btn" id="editEndBtn" onclick="openTimePicker('end')">
+            <span id="editEndDisplay">10:10</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.4"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          </button>
+          <input type="hidden" id="editEndNative">
+        </div>
+        <div class="time-col dur-col">
+          <label class="edit-label">Time</label>
+          <input type="text" id="editDuration" class="duration-input" placeholder="0:00">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Actions -->
+    <div class="edit-actions">
+      <button class="edit-btn delete" onclick="deleteSession()">Delete</button>
+      <div class="edit-actions-right">
+        <button class="edit-btn cancel" onclick="closeSessionEdit()">Cancel</button>
+        <button class="edit-btn save" onclick="saveSessionEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h3>Settings</h3>
+    <div style="margin:16px 0;">
+      <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:8px;">Week starts on</label>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="startSun" onclick="setWeekStart('sun')" style="flex:1;">Sunday</button>
+        <button class="btn" id="startMon" onclick="setWeekStart('mon')" style="flex:1;">Monday</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModals()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Time Picker Popup -->
+<div class="custom-tp" id="customTimePicker">
+  <div class="custom-tp-header">
+    <span id="tpLabel">Start</span>
+    <button class="edit-close" onclick="closeTimePicker()" style="font-size:16px;">×</button>
+  </div>
+  <div class="custom-tp-body">
+    <div class="tp-col-wrap">
+      <div class="tp-col-label">H</div>
+      <div class="tp-scroll" id="tpHours"></div>
+    </div>
+    <span class="tp-sep">:</span>
+    <div class="tp-col-wrap">
+      <div class="tp-col-label">M</div>
+      <div class="tp-scroll" id="tpMinutes"></div>
+    </div>
+  </div>
+  <div class="custom-tp-footer">
+    <button class="edit-btn save" onclick="confirmTimePicker()">OK</button>
+  </div>
+</div>
+
+<!-- Invoice (print only) -->
+<div class="invoice-view" id="invoiceView"></div>
+
+<script>
+// --- State ---
+const STORAGE_KEY = 'enter_sessions';
+const TIMER_KEY = 'enter_timer';
+const SETTINGS_KEY = 'enter_settings';
+const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_NAMES_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function getDayNames() { return getSettings().weekStart === 'sun' ? DAY_NAMES_SUN : DAY_NAMES_MON; }
+const HOURS_START = 0;
+const HOURS_END = 24;
+const HOUR_HEIGHT = 60;
+
+let sessions = [];
+let currentWeekStart = null;
+let currentMonth = new Date();
+let timerInterval = null;
+let selectedSessionId = null;
+
+// --- Settings ---
+function getSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : { weekStart: 'sun' };
+  } catch { return { weekStart: 'sun' }; }
+}
+
+function saveSettings(s) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+
+function openSettingsModal() {
+  const s = getSettings();
+  document.getElementById('startSun').classList.toggle('primary', s.weekStart === 'sun');
+  document.getElementById('startMon').classList.toggle('primary', s.weekStart === 'mon');
+  document.getElementById('settingsModal').classList.add('active');
+}
+
+function setWeekStart(val) {
+  const s = getSettings();
+  s.weekStart = val;
+  saveSettings(s);
+  document.getElementById('startSun').classList.toggle('primary', val === 'sun');
+  document.getElementById('startMon').classList.toggle('primary', val === 'mon');
+  currentWeekStart = getWeekStartDate(new Date());
+  renderCalendar();
+}
+
+// --- Init ---
+function init() {
+  currentWeekStart = getWeekStartDate(new Date());
+  loadSessions();
+  restoreTimer();
+  renderCalendar(true);
+  updateTimerDisplay();
+}
+
+// --- Storage ---
+function loadSessions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    sessions = raw ? JSON.parse(raw) : [];
+  } catch { sessions = []; }
+}
+
+function saveSessions() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  autoBackup();
+}
+
+// --- Timer ---
+function toggleTimer() {
+  const saved = getRunningTimer();
+  if (saved) {
+    stopTimer(saved);
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  const now = new Date();
+  const timer = { startTime: now.toISOString() };
+  localStorage.setItem(TIMER_KEY, JSON.stringify(timer));
+  updateTimerUI(true, now);
+  timerInterval = setInterval(() => updateTimerDisplay(), 1000);
+}
+
+function stopTimer(timer) {
+  const now = new Date();
+  const start = new Date(timer.startTime);
+  const session = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    start: start.toISOString(),
+    end: now.toISOString(),
+    duration: now - start,
+  };
+  sessions.push(session);
+  saveSessions();
+  localStorage.removeItem(TIMER_KEY);
+  clearInterval(timerInterval);
+  timerInterval = null;
+  updateTimerUI(false);
+  renderCalendar();
+}
+
+function getRunningTimer() {
+  try {
+    const raw = localStorage.getItem(TIMER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function restoreTimer() {
+  const timer = getRunningTimer();
+  if (timer) {
+    updateTimerUI(true, new Date(timer.startTime));
+    timerInterval = setInterval(() => updateTimerDisplay(), 1000);
+  }
+}
+
+function updateTimerUI(running, startTime) {
+  const btn = document.getElementById('timerBtn');
+  const play = document.getElementById('playIcon');
+  const stop = document.getElementById('stopIcon');
+  const display = document.getElementById('timerDisplay');
+  const startedAt = document.getElementById('timerStartedAt');
+
+  if (running) {
+    btn.className = 'timer-btn stop';
+    play.style.display = 'none';
+    stop.style.display = 'block';
+    display.className = 'timer-display running';
+    if (startTime) {
+      startedAt.textContent = `Recording since ${startTime.getHours()}:${String(startTime.getMinutes()).padStart(2,'0')}`;
+    }
+  } else {
+    btn.className = 'timer-btn start';
+    play.style.display = 'block';
+    stop.style.display = 'none';
+    display.className = 'timer-display stopped';
+    display.textContent = '0:00:00';
+    startedAt.textContent = '';
+    document.getElementById('pageTitle').textContent = 'Time Tracker';
+  }
+}
+
+function updateTimerDisplay() {
+  const timer = getRunningTimer();
+  if (timer) {
+    const elapsed = Date.now() - new Date(timer.startTime).getTime();
+    const timeStr = formatDuration(elapsed);
+    const display = document.getElementById('timerDisplay');
+    const parts = timeStr.split(':');
+    display.innerHTML = `<span class="t-num">${parts[0]}</span><span class="t-sep">:</span><span class="t-num">${parts[1]}</span><span class="t-sep">:</span><span class="t-num">${parts[2]}</span>`;
+    document.getElementById('pageTitle').textContent = `▶ ${timeStr} - Time Tracker`;
+    renderCalendar();
+  } else {
+    document.getElementById('pageTitle').textContent = 'Time Tracker';
+  }
+}
+
+// --- Calendar Rendering ---
+function renderCalendar(scrollToNow) {
+  const container = document.getElementById('calendarContainer');
+  const prevScroll = container ? container.scrollTop : 0;
+  renderDayHeaders();
+  renderTimeGrid();
+  updateWeekLabel();
+  if (_currentTab === 'monthly') updateMonthTotal(); else updateWeekTotal();
+  if (scrollToNow) {
+    setTimeout(scrollCalendarToNow, 100);
+  } else if (container) {
+    // Preserve scroll position after re-render
+    requestAnimationFrame(() => { container.scrollTop = prevScroll; });
+  }
+}
+
+function scrollCalendarToNow() {
+  const container = document.getElementById('calendarContainer');
+  if (!container) return;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowPx = ((nowMin - HOURS_START * 60) / 60) * HOUR_HEIGHT;
+  container.scrollTop = Math.max(0, nowPx - container.clientHeight / 3);
+}
+
+function renderDayHeaders() {
+  const container = document.getElementById('dayHeaders');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const dayNames = getDayNames();
+  let html = '<div class="day-header-spacer"></div>';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    const isToday = d.getTime() === today.getTime();
+    const isSun = d.getDay() === 0;
+    const isSat = d.getDay() === 6;
+    const dayHours = getDayHours(d);
+    const isRecording = isToday && !!getRunningTimer();
+    const classes = [isToday ? 'today' : '', isSun ? 'sunday' : '', isSat ? 'saturday' : '', isRecording ? 'recording' : ''].filter(Boolean).join(' ');
+    html += `<div class="day-header ${classes}">
+      <div class="day-date">${d.getDate()}</div>
+      <div class="day-meta">
+        <span class="day-name">${dayNames[i]}</span>
+        <span class="day-hours">${dayHours > 0 ? formatHM(dayHours) : '0:00'}</span>
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderTimeGrid() {
+  const container = document.getElementById('timeGrid');
+  let html = '<div class="time-label-col">';
+  for (let h = HOURS_START; h < HOURS_END; h++) {
+    html += `<div class="time-label">${h}:00</div>`;
+  }
+  html += '</div>';
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    html += `<div class="day-col">`;
+    for (let h = HOURS_START; h < HOURS_END; h++) {
+      html += `<div class="hour-line"></div>`;
+    }
+    // Current time line for today
+    const now = new Date();
+    const todayCheck = new Date(); todayCheck.setHours(0,0,0,0);
+    const dCheck = new Date(d); dCheck.setHours(0,0,0,0);
+    if (dCheck.getTime() === todayCheck.getTime()) {
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const nowTop = ((nowMin - HOURS_START * 60) / 60) * HOUR_HEIGHT;
+      if (nowTop >= 0) {
+        const isRecording = !!getRunningTimer();
+        html += `<div class="now-line ${isRecording ? 'recording' : ''}" style="top:${nowTop}px;"><div class="now-dot"></div></div>`;
+      }
+    }
+
+    // Render sessions for this day
+    const daySessions = getSessionsForDay(d);
+    // Calculate overlaps for side-by-side layout
+    const laid = []; // { startMin, endMin, col, totalCols, session }
+    daySessions.forEach(s => {
+      const start = new Date(s.start);
+      const end = s.end ? new Date(s.end) : new Date();
+      const isOverflow = s._overflowDay;
+      let sMin, eMin;
+      if (isOverflow) {
+        sMin = HOURS_START * 60;
+        eMin = end.getHours() * 60 + end.getMinutes();
+      } else {
+        sMin = start.getHours() * 60 + start.getMinutes();
+        const startDay = new Date(start); startDay.setHours(0,0,0,0);
+        const endDay = new Date(end); endDay.setHours(0,0,0,0);
+        eMin = endDay > startDay ? HOURS_END * 60 : end.getHours() * 60 + end.getMinutes();
+      }
+      // Clamp to visible grid range for overlap calculation
+      sMin = Math.max(sMin, HOURS_START * 60);
+      eMin = Math.min(eMin, HOURS_END * 60);
+      if (eMin < sMin) return; // skip if entirely outside visible range
+      if (eMin === sMin) eMin = sMin + 1; // ensure short sessions are visible
+      // Ensure visual minimum height is reflected in overlap detection
+      const minBlockMinutes = 16 / HOUR_HEIGHT * 60; // 16px minimum in minutes
+      const visualEMin = Math.max(eMin, sMin + minBlockMinutes);
+      laid.push({ sMin, eMin, visualEMin, session: s, col: 0, totalCols: 1 });
+    });
+
+    // Assign columns: greedy left-to-right (using visual end for overlap detection)
+    laid.sort((a, b) => a.sMin - b.sMin || a.eMin - b.eMin);
+    for (let i = 0; i < laid.length; i++) {
+      const overlaps = laid.filter((o, j) => j < i && o.visualEMin > laid[i].sMin && o.sMin < laid[i].visualEMin);
+      const usedCols = overlaps.map(o => o.col);
+      let col = 0;
+      while (usedCols.includes(col)) col++;
+      laid[i].col = col;
+    }
+
+    // Calculate totalCols per overlap group
+    for (let i = 0; i < laid.length; i++) {
+      const group = laid.filter(o => o.visualEMin > laid[i].sMin && o.sMin < laid[i].visualEMin);
+      const maxCol = Math.max(...group.map(o => o.col)) + 1;
+      group.forEach(o => { if (maxCol > o.totalCols) o.totalCols = maxCol; });
+    }
+
+    let zIdx = 5;
+    laid.forEach(({ sMin, eMin, session: s, col, totalCols }) => {
+      zIdx++;
+      const startMin = sMin;
+      const endMin = eMin;
+      const rawTop = ((startMin - HOURS_START * 60) / 60) * HOUR_HEIGHT + 1;
+      const rawBottom = ((endMin - HOURS_START * 60) / 60) * HOUR_HEIGHT - 1;
+      const top = Math.max(rawTop, 0);
+      const height = Math.max(rawBottom - top, 16);
+      const isRunning = !s.end;
+      const isOverflow = s._overflowDay;
+      const start = new Date(s.start);
+      const end = s.end ? new Date(s.end) : new Date();
+
+      // Side-by-side positioning
+      const colWidth = 100 / totalCols;
+      const leftPct = col * colWidth;
+      const widthPct = colWidth;
+      const popupData = JSON.stringify({time: `${formatTime(start)} - ${s.end ? formatTime(end) : '...'}`, dur: formatDuration(s.duration || (Date.now() - start.getTime())), running: isRunning}).replace(/"/g, '&quot;');
+      html += `<div class="session-block ${isRunning ? 'running' : ''}"
+        style="top:${top}px;height:${height}px;z-index:${zIdx};left:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 4px);right:auto;"
+        onclick="showSessionTooltip(event, '${s.id}')"
+        onmouseenter="showPopup(event, this)" onmouseleave="hidePopup()"
+        data-popup="${popupData}">
+        <div class="session-time">${formatTime(start)} - ${s.end ? formatTime(end) : '...'}</div>
+        ${height > 24 ? `<div class="session-dur">${formatDuration(s.duration || (Date.now() - start.getTime()))}</div>` : ''}
+      </div>`;
+    });
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function getSessionsForDay(date) {
+  const dayStart = new Date(date);
+  dayStart.setHours(0,0,0,0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23,59,59,999);
+
+  const result = [];
+
+  sessions.forEach(s => {
+    const start = new Date(s.start);
+    const end = new Date(s.end);
+
+    // Session starts on this day
+    if (start >= dayStart && start <= dayEnd) {
+      result.push(s);
+    }
+    // Session started before this day but extends into it (overnight)
+    else if (start < dayStart && end > dayStart) {
+      result.push({ ...s, _overflowDay: true, _dayStart: dayStart });
+    }
+  });
+
+  // Add running timer as virtual session (start day + today if overnight)
+  const timer = getRunningTimer();
+  if (timer) {
+    const start = new Date(timer.startTime);
+    const today = new Date(); today.setHours(0,0,0,0);
+    // Show on start day
+    if (start >= dayStart && start <= dayEnd) {
+      result.push({ id: '__running__', start: timer.startTime, end: null, duration: 0 });
+    }
+    // Show on today if overnight (started before today)
+    else if (start < dayStart && dayStart.getTime() === today.getTime()) {
+      result.push({ id: '__running__', start: timer.startTime, end: null, duration: 0, _overflowDay: true, _dayStart: dayStart });
+    }
+  }
+  return result;
+}
+
+function getDayHours(date) {
+  const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
+  const dayEnd = new Date(date); dayEnd.setHours(23,59,59,999);
+  const daySessions = getSessionsForDay(date).filter(s => s.id !== '__running__');
+  return daySessions.reduce((sum, s) => {
+    const start = new Date(s.start);
+    const end = new Date(s.end);
+    // Clamp to this day's boundaries
+    const clampStart = start < dayStart ? dayStart : start;
+    const clampEnd = end > dayEnd ? dayEnd : end;
+    return sum + Math.max(clampEnd - clampStart, 0);
+  }, 0);
+}
+
+// --- Week Navigation ---
+function getWeekStartDate(d) {
+  const date = new Date(d);
+  const day = date.getDay(); // 0=Sun, 1=Mon...
+  const s = getSettings();
+  let diff;
+  if (s.weekStart === 'sun') {
+    diff = day; // Sunday=0 → no shift needed
+  } else {
+    diff = (day === 0) ? 6 : day - 1; // Monday start
+  }
+  date.setDate(date.getDate() - diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+
+function isCurrentWeek() {
+  const today = getWeekStartDate(new Date());
+  return currentWeekStart.getTime() === today.getTime();
+}
+
+// --- Week Picker ---
+let _wpMonth = null;
+
+function toggleWeekPicker() {
+  const picker = document.getElementById('weekPicker');
+  if (picker.classList.contains('active')) {
+    picker.classList.remove('active');
+    return;
+  }
+  _wpMonth = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), 1);
+  renderWeekPicker();
+  picker.classList.add('active');
+}
+
+function closeWeekPicker() {
+  document.getElementById('weekPicker').classList.remove('active');
+}
+
+function wpChangeMonth(delta) {
+  _wpMonth.setMonth(_wpMonth.getMonth() + delta);
+  renderWeekPicker();
+}
+
+function renderWeekPicker() {
+  const year = _wpMonth.getFullYear();
+  const month = _wpMonth.getMonth();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const s = getSettings();
+  const dayLabels = s.weekStart === 'sun'
+    ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  // Header
+  let html = `<div class="wp-header">
+    <button class="wp-nav" onclick="event.stopPropagation();wpChangeMonth(-1)">‹</button>
+    <span>${year}/${month + 1}</span>
+    <button class="wp-nav" onclick="event.stopPropagation();wpChangeMonth(1)">›</button>
+  </div>`;
+
+  // Day labels row
+  html += `<div class="wp-days">`;
+  html += `<div class="wp-day-label"></div>`; // W column
+  dayLabels.forEach((d, i) => {
+    let cls = '';
+    if (s.weekStart === 'sun') { if (i === 0) cls = 'sun'; if (i === 6) cls = 'sat'; }
+    else { if (i === 6) cls = 'sun'; if (i === 5) cls = 'sat'; }
+    html += `<div class="wp-day-label ${cls}">${d}</div>`;
+  });
+
+  // Find first day to show
+  const firstOfMonth = new Date(year, month, 1);
+  const weekStart = getWeekStartDate(firstOfMonth);
+  // Show 6 weeks to cover all cases
+  for (let w = 0; w < 6; w++) {
+    const rowStart = new Date(weekStart);
+    rowStart.setDate(rowStart.getDate() + w * 7);
+
+    // Skip if entire row is next month
+    if (w >= 4) {
+      const rowEnd = new Date(rowStart); rowEnd.setDate(rowEnd.getDate() + 6);
+      if (rowStart.getMonth() !== month && rowEnd.getMonth() !== month) break;
+    }
+
+    const isSelected = rowStart.getTime() === currentWeekStart.getTime();
+    // Calculate week number relative to the displayed month
+    const firstOfDisplayMonth = new Date(year, month, 1);
+    const firstWeek = getWeekStartDate(firstOfDisplayMonth);
+    const wNum = Math.floor((rowStart - firstWeek) / (7 * 86400000)) + 1;
+
+    html += `<div class="wp-row ${isSelected ? 'selected' : ''}" onclick="event.stopPropagation();selectWeek(${rowStart.getTime()})">`;
+    html += `<div class="wp-wnum">W${wNum}</div>`;
+
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(rowStart);
+      date.setDate(date.getDate() + d);
+      const isToday = date.getTime() === today.getTime();
+      const isOther = date.getMonth() !== month;
+      const isSun = date.getDay() === 0;
+      const isSat = date.getDay() === 6;
+      const cls = [isToday ? 'today' : '', isOther ? 'other-month' : '', isSun ? 'sun' : '', isSat ? 'sat' : ''].filter(Boolean).join(' ');
+      html += `<div class="wp-cell ${cls}">${date.getDate()}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('weekPicker').innerHTML = html;
+}
+
+function selectWeek(timestamp) {
+  currentWeekStart = new Date(timestamp);
+  renderCalendar(isCurrentWeek());
+  closeWeekPicker();
+  animateView('calendarContainer');
+}
+
+// Close week picker on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.week-picker') && !e.target.closest('.week-label')) {
+    closeWeekPicker();
+  }
+});
+
+function animateView(containerId) {
+  const el = document.getElementById(containerId);
+  if (el) { el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
+}
+
+function changeWeek(delta) {
+  currentWeekStart.setDate(currentWeekStart.getDate() + delta * 7);
+  renderCalendar(isCurrentWeek());
+  animateView('calendarContainer');
+}
+
+function goToday() {
+  currentWeekStart = getWeekStartDate(new Date());
+  renderCalendar(true);
+  animateView('calendarContainer');
+}
+
+function getWeekOfMonth(date) {
+  // 月の1日が含まれる週を第1週とする
+  const first = new Date(date.getFullYear(), date.getMonth(), 1);
+  const firstWeekStart = getWeekStartDate(first);
+  return Math.floor((date - firstWeekStart) / (7 * 86400000)) + 1;
+}
+
+function updateWeekLabel() {
+  const end = new Date(currentWeekStart);
+  end.setDate(end.getDate() + 6);
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+
+  const startMonth = MONTH_NAMES[currentWeekStart.getMonth()];
+  const endMonth = MONTH_NAMES[end.getMonth()];
+  const startW = getWeekOfMonth(currentWeekStart);
+  const endW = getWeekOfMonth(end);
+
+  let weekStr;
+  if (currentWeekStart.getMonth() === end.getMonth()) {
+    weekStr = `${startMonth} W${startW}`;
+  } else {
+    weekStr = `${startMonth} W${startW} - ${endMonth} W${endW}`;
+  }
+
+  document.getElementById('weekLabel').innerHTML = `${fmt(currentWeekStart)} - ${fmt(end)} <span style="color:var(--text-muted);font-size:12px;margin-left:10px;">${weekStr}</span>`;
+}
+
+function updateWeekTotal() {
+  let total = 0;
+  let workDays = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    const dayMs = getDayHours(d);
+    total += dayMs;
+    if (dayMs > 0) workDays++;
+  }
+  document.getElementById('weekTotal').textContent = formatHM(total);
+  document.getElementById('statWorkDays').textContent = workDays;
+}
+
+function updateMonthTotal() {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let totalMs = 0;
+  let workDays = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const daySessions = sessions.filter(s => {
+      const start = new Date(s.start);
+      return start.getFullYear() === year && start.getMonth() === month && start.getDate() === day;
+    });
+    const dayMs = daySessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    totalMs += dayMs;
+    if (dayMs > 0) workDays++;
+  }
+  document.getElementById('weekTotal').textContent = formatHM(totalMs);
+  document.getElementById('statWorkDays').textContent = workDays;
+}
+
+// --- Monthly View ---
+let _currentTab = 'calendar';
+function switchTab(tab) {
+  _currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('calendarView').classList.toggle('hidden', tab !== 'calendar');
+  document.getElementById('monthlyView').classList.toggle('active', tab === 'monthly');
+  if (tab === 'monthly') {
+    renderMonthly();
+    updateMonthTotal();
+    animateView('monthlyScroll');
+  } else {
+    updateWeekTotal();
+    animateView('calendarContainer');
+    if (isCurrentWeek()) requestAnimationFrame(() => setTimeout(scrollCalendarToNow, 0));
+  }
+}
+
+function changeMonth(delta) {
+  currentMonth.setMonth(currentMonth.getMonth() + delta);
+  renderMonthly();
+  animateView('monthlyScroll');
+}
+
+function goToThisMonth() {
+  currentMonth = new Date();
+  renderMonthly();
+  animateView('monthlyScroll');
+  // Scroll today's row into view
+  setTimeout(() => {
+    const todayRow = document.querySelector('.daily-row-today');
+    if (todayRow) todayRow.scrollIntoView({ block: 'center' });
+  }, 50);
+}
+
+function renderMonthly() {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  document.getElementById('monthLabel').textContent = `${year}/${month + 1}`;
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let totalMs = 0;
+  let workDays = 0;
+  let maxDayMs = 0;
+  const dailyData = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const daySessions = sessions.filter(s => {
+      const start = new Date(s.start);
+      return start.getFullYear() === year && start.getMonth() === month && start.getDate() === day;
+    });
+    const dayMs = daySessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    totalMs += dayMs;
+    if (dayMs > 0) workDays++;
+    if (dayMs > maxDayMs) maxDayMs = dayMs;
+    dailyData.push({ date: d, ms: dayMs });
+  }
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  let scrollHtml = `<div class="daily-breakdown">`;
+  dailyData.forEach(({ date, ms }) => {
+    const pct = maxDayMs > 0 ? (ms / maxDayMs) * 100 : 0;
+    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()];
+    const isSun = date.getDay() === 0;
+    const isSat = date.getDay() === 6;
+    const isToday = date.getTime() === today.getTime();
+    const dateColor = isSun ? 'color:#d4736a;' : isSat ? 'color:#7aabcf;' : '';
+    const todayClass = isToday ? ' daily-row-today' : '';
+    scrollHtml += `<div class="daily-row${todayClass}">
+      <span class="daily-date" style="${dateColor}">${date.getMonth()+1}/${date.getDate()} (${dow})</span>
+      <div class="daily-bar-wrap">${ms > 0 ? `<div class="daily-bar" style="width:${pct}%"></div>` : ''}</div>
+      <span class="daily-hours">${ms > 0 ? formatHM(ms) : '-'}</span>
+    </div>`;
+  });
+  scrollHtml += '</div>';
+
+  document.getElementById('monthlyScroll').innerHTML = scrollHtml;
+  updateMonthTotal();
+}
+
+// --- Session Management ---
+// --- Hover Popup ---
+function showPopup(event, el) {
+  try {
+    const data = JSON.parse(el.dataset.popup);
+    const popup = document.getElementById('sessionPopup');
+    document.getElementById('popupTime').textContent = data.time;
+    document.getElementById('popupDur').textContent = data.dur;
+    popup.classList.toggle('is-running', !!data.running);
+    popup.style.display = 'block';
+    popup.style.left = (event.clientX + 12) + 'px';
+    popup.style.top = (event.clientY - 10) + 'px';
+  } catch {}
+}
+
+function hidePopup() {
+  document.getElementById('sessionPopup').style.display = 'none';
+}
+
+// --- Session Edit ---
+function showSessionTooltip(event, id) {
+  if (id === '__running__') return;
+  event.stopPropagation();
+  selectedSessionId = id;
+  const session = sessions.find(s => s.id === id);
+  if (!session) return;
+
+  const start = new Date(session.start);
+  const end = new Date(session.end);
+
+  // Fill edit form
+  const dateStr = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
+  document.getElementById('editDate').value = dateStr;
+  updateDateDisplay();
+  const startStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
+  const endStr = `${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('editStartNative').value = startStr;
+  document.getElementById('editEndNative').value = endStr;
+  document.getElementById('editStartDisplay').textContent = startStr;
+  document.getElementById('editEndDisplay').textContent = endStr;
+
+  closeTimePicker();
+  updateEditDuration();
+
+  document.getElementById('sessionEditModal').classList.add('active');
+}
+
+let _durationManualEdit = false;
+
+let _tpTarget = null; // 'start' or 'end'
+let _tpH = 0, _tpM = 0;
+
+function getEditStart() {
+  return document.getElementById('editStartNative').value;
+}
+function getEditEnd() {
+  return document.getElementById('editEndNative').value;
+}
+
+function openTimePicker(target) {
+  _tpTarget = target;
+  const val = target === 'start' ? getEditStart() : getEditEnd();
+  const [h, m] = (val || '09:00').split(':').map(Number);
+  _tpH = h; _tpM = m;
+
+  document.getElementById('tpLabel').textContent = target === 'start' ? 'Start' : 'End';
+
+  // Build hour items
+  let hHtml = '';
+  for (let i = 0; i < 24; i++) {
+    hHtml += `<div class="tp-item ${i === h ? 'selected' : ''}" onclick="tpSelectH(${i})">${String(i).padStart(2,'0')}</div>`;
+  }
+  document.getElementById('tpHours').innerHTML = hHtml;
+
+  // Build minute items (5min intervals)
+  let mHtml = '';
+  for (let i = 0; i < 60; i += 5) {
+    mHtml += `<div class="tp-item ${i === m - (m % 5) ? 'selected' : ''}" onclick="tpSelectM(${i})">${String(i).padStart(2,'0')}</div>`;
+  }
+  // Also add exact minute if not on 5min boundary
+  if (m % 5 !== 0) {
+    // Insert exact value
+    document.getElementById('tpMinutes').innerHTML = mHtml;
+    // Re-render with exact
+    mHtml = '';
+    const allMins = new Set([...Array(12)].map((_,i)=>i*5));
+    allMins.add(m);
+    [...allMins].sort((a,b)=>a-b).forEach(i => {
+      mHtml += `<div class="tp-item ${i === m ? 'selected' : ''}" onclick="tpSelectM(${i})">${String(i).padStart(2,'0')}</div>`;
+    });
+  }
+  document.getElementById('tpMinutes').innerHTML = mHtml;
+
+  const tp = document.getElementById('customTimePicker');
+  const btn = document.getElementById(_tpTarget === 'start' ? 'editStartBtn' : 'editEndBtn');
+  const rect = btn.getBoundingClientRect();
+  tp.classList.add('active');
+  tp.style.left = rect.left + 'px';
+  tp.style.top = (rect.bottom + 6) + 'px';
+
+  // Keep within viewport
+  requestAnimationFrame(() => {
+    const tpRect = tp.getBoundingClientRect();
+    if (tpRect.right > window.innerWidth - 8) tp.style.left = (window.innerWidth - tpRect.width - 8) + 'px';
+    if (tpRect.bottom > window.innerHeight - 8) tp.style.top = (rect.top - tpRect.height - 6) + 'px';
+    // Scroll selected into view
+    document.querySelectorAll('#tpHours .selected, #tpMinutes .selected').forEach(el => {
+      el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    });
+  });
+}
+
+function tpSelectH(h) {
+  _tpH = h;
+  document.querySelectorAll('#tpHours .tp-item').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.textContent) === h);
+  });
+}
+
+function tpSelectM(m) {
+  _tpM = m;
+  document.querySelectorAll('#tpMinutes .tp-item').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.textContent) === m);
+  });
+}
+
+function confirmTimePicker() {
+  const val = `${String(_tpH).padStart(2,'0')}:${String(_tpM).padStart(2,'0')}`;
+  if (_tpTarget === 'start') {
+    document.getElementById('editStartNative').value = val;
+    document.getElementById('editStartDisplay').textContent = val;
+  } else {
+    document.getElementById('editEndNative').value = val;
+    document.getElementById('editEndDisplay').textContent = val;
+  }
+  closeTimePicker();
+  _durationManualEdit = false;
+  updateEditDuration();
+}
+
+function closeTimePicker() {
+  document.getElementById('customTimePicker').classList.remove('active');
+}
+
+
+function updateDateDisplay() {
+  const d = document.getElementById('editDate').value;
+  if (!d) return;
+  const date = new Date(d + 'T00:00:00');
+  const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()];
+  document.getElementById('editDateDisplay').textContent = `${date.getMonth()+1}/${date.getDate()} (${dow})`;
+}
+
+function editDateShift(delta) {
+  const d = document.getElementById('editDate');
+  const date = new Date(d.value + 'T00:00:00');
+  date.setDate(date.getDate() + delta);
+  d.value = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  updateDateDisplay();
+}
+
+function updateEditDuration() {
+  if (_durationManualEdit) return;
+  const date = document.getElementById('editDate').value;
+  const startVal = getEditStart();
+  const endVal = getEditEnd();
+  if (date && startVal && endVal) {
+    const s = new Date(`${date}T${startVal}`);
+    const e = new Date(`${date}T${endVal}`);
+    if (e <= s) e.setDate(e.getDate() + 1);
+    const ms = e - s;
+    document.getElementById('editDuration').value = ms > 0 ? formatDuration(ms) : '--:--';
+  }
+}
+
+function parseDurationInput(str) {
+  // Accepts H:MM, H:MM:SS, or MM
+  const parts = str.trim().split(':').map(Number);
+  if (parts.some(isNaN)) return null;
+  if (parts.length === 3) return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+  if (parts.length === 2) return (parts[0] * 3600 + parts[1] * 60) * 1000;
+  if (parts.length === 1) return parts[0] * 60 * 1000;
+  return null;
+}
+
+// When duration is edited, update end time
+document.getElementById('editDuration').addEventListener('change', (e) => {
+  const ms = parseDurationInput(e.target.value);
+  if (!ms || ms <= 0) return;
+  const date = document.getElementById('editDate').value;
+  const startVal = getEditStart();
+  if (!date || !startVal) return;
+  const s = new Date(`${date}T${startVal}`);
+  const newEnd = new Date(s.getTime() + ms);
+  const endStr = `${String(newEnd.getHours()).padStart(2,'0')}:${String(newEnd.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('editEndNative').value = endStr;
+  document.getElementById('editEndDisplay').textContent = endStr;
+  e.target.value = formatDuration(ms);
+});
+
+document.getElementById('editDuration').addEventListener('focus', () => { _durationManualEdit = true; });
+document.getElementById('editDuration').addEventListener('blur', () => { _durationManualEdit = false; });
+
+function closeSessionEdit() {
+  document.getElementById('sessionEditModal').classList.remove('active');
+  selectedSessionId = null;
+}
+
+function saveSessionEdit() {
+  if (!selectedSessionId) return;
+  const session = sessions.find(s => s.id === selectedSessionId);
+  if (!session) return;
+
+  const date = document.getElementById('editDate').value;
+  const startVal = getEditStart();
+  const endVal = getEditEnd();
+
+  if (!date || !startVal || !endVal) {
+    alert('Please fill in all fields.');
+    return;
+  }
+
+  const newStart = new Date(`${date}T${startVal}`);
+  const newEnd = new Date(`${date}T${endVal}`);
+
+  if (newEnd <= newStart) {
+    newEnd.setDate(newEnd.getDate() + 1);
+  }
+
+  session.start = newStart.toISOString();
+  session.end = newEnd.toISOString();
+  session.duration = newEnd - newStart;
+
+  saveSessions();
+  closeSessionEdit();
+  renderCalendar();
+}
+
+function deleteSession() {
+  if (!selectedSessionId) return;
+  if (!confirm('Delete this session?')) return;
+  sessions = sessions.filter(s => s.id !== selectedSessionId);
+  saveSessions();
+  closeSessionEdit();
+  renderCalendar();
+}
+
+// --- Auto Backup ---
+const BACKUP_PREFIX = 'enter_backup_';
+const MAX_BACKUPS = 3;
+
+function autoBackup() {
+  const data = JSON.stringify({ sessions, backupAt: new Date().toISOString() });
+  const key = BACKUP_PREFIX + Date.now();
+  localStorage.setItem(key, data);
+
+  // Keep only latest N backups
+  const allKeys = Object.keys(localStorage).filter(k => k.startsWith(BACKUP_PREFIX)).sort();
+  while (allKeys.length > MAX_BACKUPS) {
+    localStorage.removeItem(allKeys.shift());
+  }
+}
+
+function getBackups() {
+  return Object.keys(localStorage)
+    .filter(k => k.startsWith(BACKUP_PREFIX))
+    .sort()
+    .reverse()
+    .map(k => {
+      try {
+        const data = JSON.parse(localStorage.getItem(k));
+        return { key: k, data, date: new Date(data.backupAt), count: data.sessions.length };
+      } catch { return null; }
+    })
+    .filter(Boolean);
+}
+
+function openBackupModal() {
+  const backups = getBackups();
+  const list = document.getElementById('backupList');
+
+  if (backups.length === 0) {
+    list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">No backups yet.</p>';
+  } else {
+    list.innerHTML = backups.map((b, i) => {
+      const d = b.date;
+      const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const label = i === 0 ? 'Latest' : i === 1 ? 'Previous' : 'Oldest';
+      return `<div class="backup-slot">
+        <div class="backup-slot-info">
+          <div class="backup-slot-date">${label} — ${dateStr}</div>
+          <div class="backup-slot-meta">${b.count} sessions</div>
+        </div>
+        <button class="btn" onclick="restoreBackup('${b.key}')">Restore</button>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('backupModal').classList.add('active');
+}
+
+function restoreBackup(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!confirm(`Restore ${data.sessions.length} sessions? Current data will be replaced.`)) return;
+    sessions = data.sessions;
+    saveSessions();
+    closeModals();
+    renderCalendar();
+  } catch (e) {
+    alert('Restore failed: ' + e.message);
+  }
+}
+
+function downloadBackup() {
+  const data = JSON.stringify({ sessions, exportedAt: new Date().toISOString() }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `timetracker-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function triggerFileRestore() {
+  document.getElementById('restoreFileInput').click();
+}
+
+function restoreFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.sessions || !Array.isArray(data.sessions)) throw new Error('Invalid format');
+      if (!confirm(`Restore ${data.sessions.length} sessions from file? Current data will be replaced.`)) return;
+      sessions = data.sessions;
+      saveSessions();
+      closeModals();
+      renderCalendar();
+    } catch (err) {
+      alert('Invalid file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+}
+
+// --- Invoice ---
+function printInvoice() {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  let rows = '';
+  let totalMs = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const daySessions = sessions.filter(s => {
+      const start = new Date(s.start);
+      return start.getFullYear() === year && start.getMonth() === month && start.getDate() === day;
+    });
+    if (daySessions.length === 0) continue;
+    const dayMs = daySessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    totalMs += dayMs;
+    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+    const times = daySessions.map(s => `${formatTime(new Date(s.start))}-${formatTime(new Date(s.end))}`).join(', ');
+    rows += `<tr><td>${month+1}/${day} (${dow})</td><td>${times}</td><td style="text-align:right">${formatHM(dayMs)}</td></tr>`;
+  }
+
+  document.getElementById('invoiceView').innerHTML = `
+    <h1>Work Report</h1>
+    <p><strong>Period:</strong> ${year}/${month + 1}</p>
+    <p><strong>Issued:</strong> ${new Date().toLocaleDateString('en-US')}</p>
+    <table>
+      <thead><tr><th>Date</th><th>Work Hours</th><th style="text-align:right">Duration</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="invoice-total">Total: ${formatHM(totalMs)}</div>
+    <br>
+    <button class="btn no-print" onclick="window.print()" style="background:#333;color:white;padding:12px 24px;border:none;border-radius:6px;cursor:pointer;">Print / Save PDF</button>
+    <button class="btn no-print" onclick="closeInvoice()" style="margin-left:8px;padding:12px 24px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Close</button>
+  `;
+  document.getElementById('invoiceView').style.display = 'block';
+}
+
+function closeInvoice() {
+  document.getElementById('invoiceView').style.display = 'none';
+}
+
+// --- Helpers ---
+function formatDuration(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function formatHM(ms) {
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+function formatTime(d) {
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// --- Start ---
+init();
+</script>
+</body>
+</html>
