@@ -12,17 +12,17 @@
   --bg-secondary: #181818;
   --bg-card: #1e1e1e;
   --bg-hover: #282828;
-  --accent: #9a8afb;
-  --accent-dim: #8377db;
-  --accent-glow: rgba(154, 138, 251, 0.2);
-  --text-primary: #d4d4d4;
-  --text-secondary: #858585;
-  --text-muted: #555555;
+  --accent: #f0943a;
+  --accent-dim: #d8822e;
+  --accent-glow: rgba(240, 148, 58, 0.25);
+  --text-primary: #e0e0e0;
+  --text-secondary: #909090;
+  --text-muted: #606060;
   --border: #2a2a2a;
-  --session-color: #9a8afb;
-  --session-bg: rgba(154, 138, 251, 0.18);
-  --green: #6ec97a;
-  --green-dim: rgba(110, 201, 122, 0.15);
+  --session-color: #f0943a;
+  --session-bg: rgba(240, 148, 58, 0.2);
+  --green: #5bd66a;
+  --green-dim: rgba(91, 214, 106, 0.18);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -351,8 +351,8 @@ body {
   background: var(--green);
 }
 
-.day-header.sunday .day-date { color: #d4736a; }
-.day-header.saturday .day-date { color: #7aabcf; }
+.day-header.sunday .day-date { color: #e8675c; }
+.day-header.saturday .day-date { color: #5eaee0; }
 .day-header.today.sunday .day-date, .day-header.today.saturday .day-date { color: white; }
 
 /* Time Grid */
@@ -382,6 +382,21 @@ body {
 .day-col {
   border-right: 1px solid var(--border);
   position: relative;
+  cursor: cell;
+}
+
+#addPreviewEl {
+  position: fixed;
+  border: 1px solid rgba(120, 80, 50, 0.2);
+  border-radius: 3px;
+  background: rgba(70, 50, 35, 0.15);
+  pointer-events: none;
+  z-index: 4;
+  display: none;
+  align-items: flex-start;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: rgba(224, 145, 90, 0.3);
 }
 
 .hour-line {
@@ -416,7 +431,7 @@ body {
 .session-popup {
   display: none;
   position: fixed;
-  background: rgba(154, 138, 251, 0.5);
+  background: rgba(224, 145, 90, 0.5);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: none;
@@ -697,7 +712,7 @@ body {
 }
 
 .daily-row:last-child { border-bottom: none; }
-.daily-row-today { background: rgba(154, 138, 251, 0.08); }
+.daily-row-today { background: rgba(224, 145, 90, 0.08); }
 .daily-row-today .daily-date { color: var(--accent) !important; font-weight: 600; }
 .daily-date { width: 120px; color: var(--text-secondary); }
 .daily-bar-wrap { flex: 1; height: 20px; border-radius: 4px; margin: 0 12px; overflow: hidden; }
@@ -1176,6 +1191,9 @@ body {
   </div>
 </div>
 
+<!-- Add Session Preview -->
+<div id="addPreviewEl"></div>
+
 <!-- Session Hover Popup -->
 <div class="session-popup" id="sessionPopup">
   <div class="popup-time" id="popupTime"></div>
@@ -1508,7 +1526,8 @@ function renderTimeGrid() {
   for (let i = 0; i < 7; i++) {
     const d = new Date(currentWeekStart);
     d.setDate(d.getDate() + i);
-    html += `<div class="day-col">`;
+    const dayIso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    html += `<div class="day-col" onclick="addSessionAtClick(event, '${dayIso}')" onmousemove="updateAddPreview(event)" onmouseleave="hideAddPreview()">`;
     for (let h = HOURS_START; h < HOURS_END; h++) {
       html += `<div class="hour-line"></div>`;
     }
@@ -1928,7 +1947,7 @@ function renderMonthly() {
     const isSun = date.getDay() === 0;
     const isSat = date.getDay() === 6;
     const isToday = date.getTime() === today.getTime();
-    const dateColor = isSun ? 'color:#d4736a;' : isSat ? 'color:#7aabcf;' : '';
+    const dateColor = isSun ? 'color:#e8675c;' : isSat ? 'color:#5eaee0;' : '';
     const todayClass = isToday ? ' daily-row-today' : '';
     scrollHtml += `<div class="daily-row${todayClass}">
       <span class="daily-date" style="${dateColor}">${date.getMonth()+1}/${date.getDate()} (${dow})</span>
@@ -1959,6 +1978,85 @@ function showPopup(event, el) {
 
 function hidePopup() {
   document.getElementById('sessionPopup').style.display = 'none';
+}
+
+// --- Add Session by Click ---
+let _isNewSession = false;
+
+function calcSnappedTime(event) {
+  const col = event.currentTarget;
+  const rect = col.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  const totalMinutes = (y / HOUR_HEIGHT) * 60 + HOURS_START * 60;
+  // Round UP to next 15min so preview is always at or below cursor
+  const snapped = Math.ceil(totalMinutes / 15) * 15;
+  const clampedMin = Math.max(0, Math.min(snapped, 23 * 60));
+  const startH = Math.floor(clampedMin / 60);
+  const startM = clampedMin % 60;
+  return { startH, startM };
+}
+
+function updateAddPreview(event) {
+  const preview = document.getElementById('addPreviewEl');
+  if (event.target.closest('.session-block')) {
+    preview.style.display = 'none';
+    return;
+  }
+  const { startH, startM } = calcSnappedTime(event);
+  const col = event.currentTarget;
+  const rect = col.getBoundingClientRect();
+
+  const startMin = startH * 60 + startM;
+  const top = ((startMin - HOURS_START * 60) / 60) * HOUR_HEIGHT;
+  const height = HOUR_HEIGHT / 2; // 30 min
+
+  const startStr = `${String(startH).padStart(2,'0')}:${String(startM).padStart(2,'0')}`;
+  const endMin = startMin + 30;
+  const endStr = `${String(Math.floor(endMin / 60)).padStart(2,'0')}:${String(endMin % 60).padStart(2,'0')}`;
+
+  preview.style.display = 'flex';
+  preview.style.left = (rect.left + 2) + 'px';
+  preview.style.width = (rect.width - 4) + 'px';
+  preview.style.top = (rect.top + top) + 'px';
+  preview.style.height = height + 'px';
+  preview.textContent = `+ ${startStr} - ${endStr}`;
+}
+
+function hideAddPreview() {
+  document.getElementById('addPreviewEl').style.display = 'none';
+}
+
+function addSessionAtClick(event, dateStr) {
+  if (event.target.closest('.session-block')) return;
+  if (event.target.closest('.now-line')) return;
+
+  const col = event.currentTarget;
+  const rect = col.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  const totalMinutes = Math.floor((y / HOUR_HEIGHT) * 60) + HOURS_START * 60;
+  const snapped = Math.ceil(totalMinutes / 15) * 15;
+  const clampedMin = Math.max(0, Math.min(snapped, 23 * 60));
+  const startH = Math.floor(clampedMin / 60);
+  const startM = clampedMin % 60;
+
+  const startStr = `${String(startH).padStart(2,'0')}:${String(startM % 60).padStart(2,'0')}`;
+  const endDate = new Date(`${dateStr}T${startStr}`);
+  endDate.setMinutes(endDate.getMinutes() + 30);
+  const endStr = `${String(endDate.getHours()).padStart(2,'0')}:${String(endDate.getMinutes()).padStart(2,'0')}`;
+
+  // Open modal without saving yet
+  _isNewSession = true;
+  selectedSessionId = null;
+  document.getElementById('editDate').value = dateStr;
+  updateDateDisplay();
+  document.getElementById('editStartNative').value = startStr;
+  document.getElementById('editEndNative').value = endStr;
+  document.getElementById('editStartDisplay').textContent = startStr;
+  document.getElementById('editEndDisplay').textContent = endStr;
+  _durationManualEdit = false;
+  updateEditDuration();
+  closeTimePicker();
+  document.getElementById('sessionEditModal').classList.add('active');
 }
 
 // --- Session Edit ---
@@ -2148,13 +2246,10 @@ document.getElementById('editDuration').addEventListener('blur', () => { _durati
 function closeSessionEdit() {
   document.getElementById('sessionEditModal').classList.remove('active');
   selectedSessionId = null;
+  _isNewSession = false;
 }
 
 function saveSessionEdit() {
-  if (!selectedSessionId) return;
-  const session = sessions.find(s => s.id === selectedSessionId);
-  if (!session) return;
-
   const date = document.getElementById('editDate').value;
   const startVal = getEditStart();
   const endVal = getEditEnd();
@@ -2171,9 +2266,24 @@ function saveSessionEdit() {
     newEnd.setDate(newEnd.getDate() + 1);
   }
 
-  session.start = newStart.toISOString();
-  session.end = newEnd.toISOString();
-  session.duration = newEnd - newStart;
+  if (_isNewSession) {
+    // Create new session
+    const session = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      start: newStart.toISOString(),
+      end: newEnd.toISOString(),
+      duration: newEnd - newStart,
+    };
+    sessions.push(session);
+    _isNewSession = false;
+  } else {
+    if (!selectedSessionId) return;
+    const session = sessions.find(s => s.id === selectedSessionId);
+    if (!session) return;
+    session.start = newStart.toISOString();
+    session.end = newEnd.toISOString();
+    session.duration = newEnd - newStart;
+  }
 
   saveSessions();
   closeSessionEdit();
@@ -2181,6 +2291,7 @@ function saveSessionEdit() {
 }
 
 function deleteSession() {
+  if (_isNewSession) { closeSessionEdit(); return; }
   if (!selectedSessionId) return;
   if (!confirm('Delete this session?')) return;
   sessions = sessions.filter(s => s.id !== selectedSessionId);
