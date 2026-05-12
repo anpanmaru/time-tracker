@@ -641,6 +641,37 @@ body {
 .wp-row.selected .wp-cell.sun,
 .wp-row.selected .wp-cell.sat { color: white; }
 
+/* Toggle switch */
+.toggle-switch {
+  width: 44px;
+  height: 24px;
+  background: var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-switch.on {
+  background: var(--accent);
+}
+
+.toggle-knob {
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: left 0.2s;
+}
+
+.toggle-switch.on .toggle-knob {
+  left: 23px;
+}
+
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1191,6 +1222,9 @@ body {
   </div>
 </div>
 
+<!-- Save Toast -->
+<div id="saveToast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:12px;color:var(--text-secondary);display:none;z-index:300;pointer-events:none;transition:opacity 0.3s;"></div>
+
 <!-- Add Session Preview -->
 <div id="addPreviewEl"></div>
 
@@ -1270,14 +1304,32 @@ body {
       </div>
     </div>
     <div style="margin:16px 0;border-top:1px solid var(--border);padding-top:16px;">
-      <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;">Cloud Sync (GitHub Gist)</label>
-      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Auto-saves to GitHub Gist every time you record. Enter a GitHub Personal Access Token with <code style="background:var(--bg-secondary);padding:1px 4px;border-radius:3px;">gist</code> scope.</p>
-      <input type="password" id="gistTokenInput" class="edit-input" placeholder="ghp_xxxxxxxxxxxx" style="font-size:13px;margin-bottom:8px;">
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn" onclick="saveGistToken()" style="flex:0;">Save Token</button>
-        <span id="gistStatus" style="font-size:11px;color:var(--text-muted);"></span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <label style="font-size:13px;color:var(--text-secondary);">サーバー保存（Cloud Sync）</label>
+        <div class="toggle-switch" id="cloudSyncToggle" onclick="toggleCloudSync()">
+          <div class="toggle-knob"></div>
+        </div>
       </div>
-      <div id="gistInfo" style="margin-top:8px;font-size:11px;color:var(--text-muted);"></div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">記録データはお使いのブラウザに保存されます。データの紛失が心配な方や、複数の端末で利用したい場合はサーバー保存をご利用ください。</p>
+      <div id="cloudSyncSetup" style="display:none;">
+        <div style="background:var(--bg-secondary);border-radius:6px;padding:12px;margin-bottom:10px;font-size:11px;color:var(--text-secondary);line-height:1.8;">
+          <strong style="color:var(--text-primary);font-size:12px;">設定手順</strong><br>
+          GitHubアカウントが必要です。無料で作成できます。<br>
+          ① <a href="https://github.com/signup" target="_blank" style="color:var(--accent);">github.com</a> でアカウント作成（既にあればスキップ）<br>
+          ② <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--accent);">トークン作成ページ</a> を開く<br>
+          ③ Note: 任意の名前（例: timetracker）<br>
+          ④ Expiration: <strong>No expiration</strong> を推奨<br>
+          ⑤ Scopes: <strong>gist</strong> にのみチェック<br>
+          ⑥ 「Generate token」を押してコピー<br>
+          ⑦ 下の欄にペーストして「Save」
+        </div>
+        <input type="password" id="gistTokenInput" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-family:inherit;font-size:13px;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn" onclick="saveGistToken()" style="flex:0;">Save</button>
+          <span id="gistStatus" style="font-size:11px;color:var(--text-muted);"></span>
+        </div>
+        <div id="gistInfo" style="margin-top:8px;font-size:11px;color:var(--text-muted);"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModals()">Close</button>
@@ -1353,16 +1405,17 @@ function getGistId() { return localStorage.getItem(GIST_ID_KEY) || ''; }
 
 function saveGistToken() {
   const token = document.getElementById('gistTokenInput').value.trim();
-  if (!token) { alert('Please enter a token.'); return; }
+  if (!token) { alert('トークンを入力してください。'); return; }
   localStorage.setItem(GIST_TOKEN_KEY, token);
-  document.getElementById('gistStatus').textContent = 'Token saved. Testing...';
-  // Test by syncing
+  localStorage.setItem(CLOUD_SYNC_KEY, 'on');
+  updateCloudSyncUI();
+  document.getElementById('gistStatus').textContent = '接続中...';
   syncToGist(true);
 }
 
 async function syncToGist(showStatus) {
   const token = getGistToken();
-  if (!token || _syncInProgress) return;
+  if (!token || _syncInProgress || (!isCloudSyncOn() && !showStatus)) return;
   _syncInProgress = true;
 
   const statusEl = document.getElementById('gistStatus');
@@ -1399,23 +1452,31 @@ async function syncToGist(showStatus) {
         statusEl.style.color = 'var(--green)';
         updateGistInfo();
       }
+      _syncInProgress = false;
+      return true;
     } else {
       const err = await result.json();
       if (showStatus && statusEl) {
         statusEl.textContent = '✗ ' + (err.message || 'Failed');
         statusEl.style.color = '#e8675c';
       }
+      if (!showStatus) showSaveToast('Saved to local (cloud sync failed)');
+      _syncInProgress = false;
+      return false;
     }
   } catch (e) {
     if (showStatus && statusEl) {
       statusEl.textContent = '✗ Network error';
       statusEl.style.color = '#e8675c';
     }
+    if (!showStatus) showSaveToast('Saved to local (offline)');
+    _syncInProgress = false;
+    return false;
   }
-  _syncInProgress = false;
 }
 
 async function restoreFromGist() {
+  if (!isCloudSyncOn()) return;
   const token = getGistToken();
   const gistId = getGistId();
   if (!token || !gistId) return;
@@ -1456,8 +1517,29 @@ function updateGistInfo() {
   }
 }
 
+const CLOUD_SYNC_KEY = 'enter_cloud_sync';
+
+function isCloudSyncOn() {
+  return localStorage.getItem(CLOUD_SYNC_KEY) === 'on';
+}
+
+function toggleCloudSync() {
+  const on = !isCloudSyncOn();
+  localStorage.setItem(CLOUD_SYNC_KEY, on ? 'on' : 'off');
+  updateCloudSyncUI();
+}
+
+function updateCloudSyncUI() {
+  const on = isCloudSyncOn();
+  const toggle = document.getElementById('cloudSyncToggle');
+  const setup = document.getElementById('cloudSyncSetup');
+  toggle.classList.toggle('on', on);
+  setup.style.display = on ? 'block' : 'none';
+}
+
 function openSettingsModal() {
   const s = getSettings();
+  updateCloudSyncUI();
   document.getElementById('gistTokenInput').value = getGistToken();
   document.getElementById('gistStatus').textContent = '';
   updateGistInfo();
@@ -1483,7 +1565,10 @@ function init() {
   restoreTimer();
   renderCalendar(true);
   updateTimerDisplay();
-  // Try cloud restore on startup
+  // Auto-enable cloud sync if token exists (migration)
+  if (getGistToken() && !localStorage.getItem(CLOUD_SYNC_KEY)) {
+    localStorage.setItem(CLOUD_SYNC_KEY, 'on');
+  }
   restoreFromGist();
 }
 
@@ -1495,10 +1580,24 @@ function loadSessions() {
   } catch { sessions = []; }
 }
 
+let _toastTimer = null;
+function showSaveToast(msg) {
+  const el = document.getElementById('saveToast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 2000);
+}
+
 function saveSessions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
   autoBackup();
-  syncToGist(false); // silent cloud sync
+  if (isCloudSyncOn() && getGistToken()) {
+    syncToGist(false).then(() => showSaveToast('Saved to local + cloud'));
+  } else {
+    showSaveToast('Saved to local');
+  }
 }
 
 // --- Timer ---
