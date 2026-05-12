@@ -92,6 +92,15 @@ body {
   font-size: 28px;
 }
 
+.timer-display.running .t-sep {
+  animation: sepBlink 2s ease-in-out infinite;
+}
+
+@keyframes sepBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
 .timer-display .t-num {
   display: inline-block;
   position: relative;
@@ -564,12 +573,12 @@ body {
 .wp-day-label.sat { color: #7aabcf; }
 
 .wp-wnum {
-  padding: 6px 0;
   font-size: 10px;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 8px 0;
 }
 
 .wp-row {
@@ -609,26 +618,48 @@ body {
   border-radius: 6px 0 0 6px;
 }
 
-.wp-cell.today {
-  font-weight: 700;
-  color: var(--text-primary);
+.wp-cell {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
 }
 
-.wp-cell.today::after {
-  content: '';
+.wp-day-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.wp-cell.today {
+  font-weight: 700;
+  color: var(--accent) !important;
+}
+
+.wp-row.selected .wp-cell.today {
+  color: white !important;
+}
+
+.wp-data-dot {
   position: absolute;
-  bottom: 2px;
+  bottom: 5px;
   left: 50%;
   transform: translateX(-50%);
   width: 4px;
   height: 4px;
   background: var(--accent);
   border-radius: 50%;
+  opacity: 0.5;
 }
 
-.wp-row.selected .wp-cell.today::after {
+.wp-row.selected .wp-data-dot {
   background: white;
+  opacity: 0.6;
 }
 
 .wp-cell.other-month {
@@ -783,25 +814,6 @@ body {
   justify-content: flex-end;
 }
 
-/* Backup slots */
-.backup-slot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  margin-bottom: 8px;
-}
-
-.backup-slot-info {
-  font-size: 12px;
-}
-
-.backup-slot-date { color: var(--text-primary); font-weight: 500; }
-.backup-slot-meta { color: var(--text-muted); margin-top: 2px; }
-
-.backup-slot .btn { font-size: 11px; padding: 4px 12px; }
 
 /* Invoice Print */
 .invoice-view {
@@ -1128,10 +1140,6 @@ body {
       <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.6 3.6 0 0112 15.6z"/></svg>
       Settings
     </button>
-    <button class="btn" onclick="openBackupModal()">
-      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
-      Backup
-    </button>
   </div>
 </div>
 
@@ -1142,7 +1150,7 @@ body {
     <svg id="stopIcon" viewBox="0 0 24 24" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
   </button>
   <div class="timer-info">
-    <div class="timer-display stopped" id="timerDisplay">0:00:00</div>
+    <div class="timer-display stopped" id="timerDisplay"><span class="t-num">0</span><span class="t-sep">:</span><span class="t-num">00</span><span class="t-sep">:</span><span class="t-num">00</span></div>
     <div class="timer-started-at" id="timerStartedAt"></div>
   </div>
   <div class="timer-stats">
@@ -1196,31 +1204,6 @@ body {
   </div>
 </div>
 
-<!-- Backup Modal -->
-<div class="modal-overlay" id="backupModal">
-  <div class="modal" style="max-width:480px;">
-    <h3>Backup & Restore</h3>
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Auto-saved every time you record. Up to 3 backups kept.</p>
-    <div id="backupList"></div>
-    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Download backup file</p>
-      <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="downloadBackup()" style="flex:1;">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          Download JSON
-        </button>
-        <button class="btn" onclick="triggerFileRestore()" style="flex:1;">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" transform="rotate(180 12 12)"/></svg>
-          Restore from file
-        </button>
-      </div>
-      <input type="file" id="restoreFileInput" accept=".json" style="display:none;" onchange="restoreFromFile(event)">
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModals()">Close</button>
-    </div>
-  </div>
-</div>
 
 <!-- Save Toast -->
 <div id="saveToast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:12px;color:var(--text-secondary);display:none;z-index:300;pointer-events:none;transition:opacity 0.3s;"></div>
@@ -1592,7 +1575,6 @@ function showSaveToast(msg) {
 
 function saveSessions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  autoBackup();
   if (isCloudSyncOn() && getGistToken()) {
     syncToGist(false).then(() => showSaveToast('Saved to local + cloud'));
   } else {
@@ -1671,7 +1653,7 @@ function updateTimerUI(running, startTime) {
     play.style.display = 'block';
     stop.style.display = 'none';
     display.className = 'timer-display stopped';
-    display.textContent = '0:00:00';
+    display.innerHTML = '<span class="t-num">0</span><span class="t-sep">:</span><span class="t-num">00</span><span class="t-sep">:</span><span class="t-num">00</span>';
     startedAt.textContent = '';
     document.getElementById('pageTitle').textContent = 'Time Tracker';
   }
@@ -2005,8 +1987,13 @@ function renderWeekPicker() {
       const isOther = date.getMonth() !== month;
       const isSun = date.getDay() === 0;
       const isSat = date.getDay() === 6;
-      const cls = [isToday ? 'today' : '', isOther ? 'other-month' : '', isSun ? 'sun' : '', isSat ? 'sat' : ''].filter(Boolean).join(' ');
-      html += `<div class="wp-cell ${cls}">${date.getDate()}</div>`;
+      // Check if date has session data
+      const hasData = sessions.some(s => {
+        const sd = new Date(s.start);
+        return sd.getFullYear() === date.getFullYear() && sd.getMonth() === date.getMonth() && sd.getDate() === date.getDate();
+      });
+      const cls = [isToday ? 'today' : '', isOther ? 'other-month' : '', isSun ? 'sun' : '', isSat ? 'sat' : '', hasData ? 'has-data' : ''].filter(Boolean).join(' ');
+      html += `<div class="wp-cell ${cls}"><span class="wp-day-num">${date.getDate()}</span>${hasData ? '<span class="wp-data-dot"></span>' : ''}</div>`;
     }
     html += `</div>`;
   }
@@ -2438,9 +2425,9 @@ function updateEditDuration() {
   if (date && startVal && endVal) {
     const s = new Date(`${date}T${startVal}`);
     const e = new Date(`${date}T${endVal}`);
-    if (e <= s) e.setDate(e.getDate() + 1);
+    if (e < s) e.setDate(e.getDate() + 1);
     const ms = e - s;
-    document.getElementById('editDuration').value = ms > 0 ? formatDuration(ms) : '--:--';
+    document.getElementById('editDuration').value = formatDuration(ms);
   }
 }
 
@@ -2527,111 +2514,6 @@ function deleteSession() {
   saveSessions();
   closeSessionEdit();
   renderCalendar();
-}
-
-// --- Auto Backup ---
-const BACKUP_PREFIX = 'enter_backup_';
-const MAX_BACKUPS = 3;
-
-function autoBackup() {
-  const data = JSON.stringify({ sessions, backupAt: new Date().toISOString() });
-  const key = BACKUP_PREFIX + Date.now();
-  localStorage.setItem(key, data);
-
-  // Keep only latest N backups
-  const allKeys = Object.keys(localStorage).filter(k => k.startsWith(BACKUP_PREFIX)).sort();
-  while (allKeys.length > MAX_BACKUPS) {
-    localStorage.removeItem(allKeys.shift());
-  }
-}
-
-function getBackups() {
-  return Object.keys(localStorage)
-    .filter(k => k.startsWith(BACKUP_PREFIX))
-    .sort()
-    .reverse()
-    .map(k => {
-      try {
-        const data = JSON.parse(localStorage.getItem(k));
-        return { key: k, data, date: new Date(data.backupAt), count: data.sessions.length };
-      } catch { return null; }
-    })
-    .filter(Boolean);
-}
-
-function openBackupModal() {
-  const backups = getBackups();
-  const list = document.getElementById('backupList');
-
-  if (backups.length === 0) {
-    list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">No backups yet.</p>';
-  } else {
-    list.innerHTML = backups.map((b, i) => {
-      const d = b.date;
-      const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-      const label = i === 0 ? 'Latest' : i === 1 ? 'Previous' : 'Oldest';
-      return `<div class="backup-slot">
-        <div class="backup-slot-info">
-          <div class="backup-slot-date">${label} — ${dateStr}</div>
-          <div class="backup-slot-meta">${b.count} sessions</div>
-        </div>
-        <button class="btn" onclick="restoreBackup('${b.key}')">Restore</button>
-      </div>`;
-    }).join('');
-  }
-
-  document.getElementById('backupModal').classList.add('active');
-}
-
-function restoreBackup(key) {
-  const raw = localStorage.getItem(key);
-  if (!raw) return;
-  try {
-    const data = JSON.parse(raw);
-    if (!confirm(`Restore ${data.sessions.length} sessions? Current data will be replaced.`)) return;
-    sessions = data.sessions;
-    saveSessions();
-    closeModals();
-    renderCalendar();
-  } catch (e) {
-    alert('Restore failed: ' + e.message);
-  }
-}
-
-function downloadBackup() {
-  const data = JSON.stringify({ sessions, exportedAt: new Date().toISOString() }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `timetracker-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function triggerFileRestore() {
-  document.getElementById('restoreFileInput').click();
-}
-
-function restoreFromFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.sessions || !Array.isArray(data.sessions)) throw new Error('Invalid format');
-      if (!confirm(`Restore ${data.sessions.length} sessions from file? Current data will be replaced.`)) return;
-      sessions = data.sessions;
-      saveSessions();
-      closeModals();
-      renderCalendar();
-    } catch (err) {
-      alert('Invalid file: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
 }
 
 function closeModals() {
