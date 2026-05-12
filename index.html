@@ -1260,7 +1260,7 @@ body {
 
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
-  <div class="modal">
+  <div class="modal" style="max-width:480px;">
     <h3>Settings</h3>
     <div style="margin:16px 0;">
       <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:8px;">Week starts on</label>
@@ -1268,6 +1268,16 @@ body {
         <button class="btn" id="startSun" onclick="setWeekStart('sun')" style="flex:1;">Sunday</button>
         <button class="btn" id="startMon" onclick="setWeekStart('mon')" style="flex:1;">Monday</button>
       </div>
+    </div>
+    <div style="margin:16px 0;border-top:1px solid var(--border);padding-top:16px;">
+      <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;">Cloud Sync (GitHub Gist)</label>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Auto-saves to GitHub Gist every time you record. Enter a GitHub Personal Access Token with <code style="background:var(--bg-secondary);padding:1px 4px;border-radius:3px;">gist</code> scope.</p>
+      <input type="password" id="gistTokenInput" class="edit-input" placeholder="ghp_xxxxxxxxxxxx" style="font-size:13px;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" onclick="saveGistToken()" style="flex:0;">Save Token</button>
+        <span id="gistStatus" style="font-size:11px;color:var(--text-muted);"></span>
+      </div>
+      <div id="gistInfo" style="margin-top:8px;font-size:11px;color:var(--text-muted);"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModals()">Close</button>
@@ -1332,8 +1342,125 @@ function saveSettings(s) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
 }
 
+// --- Cloud Sync (GitHub Gist) ---
+const GIST_TOKEN_KEY = 'enter_gist_token';
+const GIST_ID_KEY = 'enter_gist_id';
+const GIST_FILENAME = 'timetracker-data.json';
+let _syncInProgress = false;
+
+function getGistToken() { return localStorage.getItem(GIST_TOKEN_KEY) || ''; }
+function getGistId() { return localStorage.getItem(GIST_ID_KEY) || ''; }
+
+function saveGistToken() {
+  const token = document.getElementById('gistTokenInput').value.trim();
+  if (!token) { alert('Please enter a token.'); return; }
+  localStorage.setItem(GIST_TOKEN_KEY, token);
+  document.getElementById('gistStatus').textContent = 'Token saved. Testing...';
+  // Test by syncing
+  syncToGist(true);
+}
+
+async function syncToGist(showStatus) {
+  const token = getGistToken();
+  if (!token || _syncInProgress) return;
+  _syncInProgress = true;
+
+  const statusEl = document.getElementById('gistStatus');
+  const data = JSON.stringify({ sessions, syncedAt: new Date().toISOString() });
+  const gistId = getGistId();
+
+  try {
+    let result;
+    if (gistId) {
+      // Update existing gist
+      result = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: data } } })
+      });
+    } else {
+      // Create new gist
+      result = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: 'TimeTracker backup',
+          public: false,
+          files: { [GIST_FILENAME]: { content: data } }
+        })
+      });
+    }
+
+    if (result.ok) {
+      const json = await result.json();
+      localStorage.setItem(GIST_ID_KEY, json.id);
+      if (showStatus && statusEl) {
+        statusEl.textContent = '✓ Synced';
+        statusEl.style.color = 'var(--green)';
+        updateGistInfo();
+      }
+    } else {
+      const err = await result.json();
+      if (showStatus && statusEl) {
+        statusEl.textContent = '✗ ' + (err.message || 'Failed');
+        statusEl.style.color = '#e8675c';
+      }
+    }
+  } catch (e) {
+    if (showStatus && statusEl) {
+      statusEl.textContent = '✗ Network error';
+      statusEl.style.color = '#e8675c';
+    }
+  }
+  _syncInProgress = false;
+}
+
+async function restoreFromGist() {
+  const token = getGistToken();
+  const gistId = getGistId();
+  if (!token || !gistId) return;
+
+  try {
+    const result = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+    if (result.ok) {
+      const json = await result.json();
+      const file = json.files[GIST_FILENAME];
+      if (file) {
+        const data = JSON.parse(file.content);
+        if (data.sessions && Array.isArray(data.sessions)) {
+          // Only restore if cloud has more data or local is empty
+          if (data.sessions.length > sessions.length || sessions.length === 0) {
+            sessions = data.sessions;
+            saveSessions();
+            renderCalendar(true);
+          }
+        }
+      }
+    }
+  } catch (e) { /* silent */ }
+}
+
+function updateGistInfo() {
+  const el = document.getElementById('gistInfo');
+  if (!el) return;
+  const gistId = getGistId();
+  const token = getGistToken();
+  if (gistId && token) {
+    el.innerHTML = `Cloud sync active · <a href="https://gist.github.com/${gistId}" target="_blank" style="color:var(--accent);">View Gist</a>`;
+  } else if (token) {
+    el.textContent = 'Token set, will create Gist on next save.';
+  } else {
+    el.textContent = '';
+  }
+}
+
 function openSettingsModal() {
   const s = getSettings();
+  document.getElementById('gistTokenInput').value = getGistToken();
+  document.getElementById('gistStatus').textContent = '';
+  updateGistInfo();
   document.getElementById('startSun').classList.toggle('primary', s.weekStart === 'sun');
   document.getElementById('startMon').classList.toggle('primary', s.weekStart === 'mon');
   document.getElementById('settingsModal').classList.add('active');
@@ -1356,6 +1483,8 @@ function init() {
   restoreTimer();
   renderCalendar(true);
   updateTimerDisplay();
+  // Try cloud restore on startup
+  restoreFromGist();
 }
 
 // --- Storage ---
@@ -1369,6 +1498,7 @@ function loadSessions() {
 function saveSessions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
   autoBackup();
+  syncToGist(false); // silent cloud sync
 }
 
 // --- Timer ---
